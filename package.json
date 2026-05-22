@@ -1,6 +1,6 @@
 {
   "name": "vid3d-projection",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Spatial video projection utility for Three.js and Cesium",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

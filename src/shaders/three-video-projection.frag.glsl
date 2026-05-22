@@ -14,12 +14,14 @@ varying vec3 vWorldNormal;
 void main() {
     vec4 projPos = projectorMatrix * vec4(vWorldPos, 1.0);
     if (projPos.w <= 0.0) discard;
+    float projNDCz = projPos.z / projPos.w;
+    if (projNDCz < -1.0 || projNDCz > 1.0) discard;
+
     vec2 uv = projPos.xy / projPos.w * 0.5 + 0.5;
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
 
     // 深度遮挡剔除
     if (enableOcclusionCulling) {
-        float projNDCz = projPos.z / projPos.w;
         float projDepth01 = projNDCz * 0.5 + 0.5;
         float sceneDepth01 = texture(projectorDepthMap, uv).x;
         if (projDepth01 > sceneDepth01 + projBias) discard;
