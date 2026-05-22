@@ -45,6 +45,7 @@ export type ThreeProjectorToolOptions = {
         [number, number],
     ];
     isShowHelper?: boolean;
+    enableOcclusionCulling?: boolean;
 };
 
 export interface ThreeProjectorTool {
@@ -73,6 +74,7 @@ export interface ThreeProjectorTool {
         elevationDeg: number;
         rollDeg: number;
     };
+    enableOcclusionCulling: boolean;
 }
 
 export async function createThreeVideoProjector(
@@ -104,6 +106,7 @@ export async function createThreeVideoProjector(
         ],
         isShowHelper = true,
     } = opts;
+    let enableOcclusionCulling = opts.enableOcclusionCulling ?? true;
 
     let orientParams = {
         azimuthDeg: orientationParams.azimuthDeg ?? 0,
@@ -159,6 +162,7 @@ export async function createThreeVideoProjector(
             ),
         },
         quadHomography: { value: computeQuadHomography(quadCorners) },
+        enableOcclusionCulling: { value: enableOcclusionCulling },
     };
 
     const projectorMat = new THREE.ShaderMaterial({
@@ -241,20 +245,21 @@ export async function createThreeVideoProjector(
 
     // 每帧调用
     function update() {
-        for (let i = 0; i < targetMeshes.length; i++) {
-            const src = targetMeshes[i];
-            const proxy = depthProxies[i];
-            src.updateMatrixWorld(true);
-            proxy.matrix.copy(src.matrixWorld);
+        if (enableOcclusionCulling) {
+            for (let i = 0; i < targetMeshes.length; i++) {
+                const src = targetMeshes[i];
+                const proxy = depthProxies[i];
+                src.updateMatrixWorld(true);
+                proxy.matrix.copy(src.matrixWorld);
+            }
+
+            renderer.setRenderTarget(projectorDepthRT);
+            renderer.clear();
+            renderer.render(depthScene, projCam);
+            renderer.setRenderTarget(null);
+
+            projectorUniforms.projectorDepthMap.value = projectorDepthRT.depthTexture;
         }
-
-        renderer.setRenderTarget(projectorDepthRT);
-        renderer.clear();
-        renderer.render(depthScene, projCam);
-        renderer.setRenderTarget(null);
-
-        projectorUniforms.projectorDepthMap.value =
-            projectorDepthRT.depthTexture;
 
         const projectorMatrix = new THREE.Matrix4();
         projectorMatrix.multiplyMatrices(
@@ -377,6 +382,15 @@ export async function createThreeVideoProjector(
                     rect[2],
                     rect[3]
                 );
+            },
+            enumerable: true,
+        },
+        // 遮挡剔除开关
+        enableOcclusionCulling: {
+            get: () => enableOcclusionCulling,
+            set: (v: boolean) => {
+                enableOcclusionCulling = v;
+                projectorUniforms.enableOcclusionCulling.value = v;
             },
             enumerable: true,
         },

@@ -138,6 +138,7 @@ onMounted(async () => {
     gui = new GUI({ title: "投影相机控制" });
     const cfg: any = {
         showHelpers: ThreeProjectorTool.camHelper?.visible,
+        enableOcclusionCulling: ThreeProjectorTool.enableOcclusionCulling,
         intensity: ThreeProjectorTool.uniforms.intensity.value,
         projFov: projCam.fov,
         proFar: projCam.far,
@@ -245,6 +246,12 @@ onMounted(async () => {
         .name("相机辅助器(helpers)")
         .onChange((v: boolean) => {
             if (camHelper) camHelper.visible = v;
+        });
+    projFolder
+        .add(cfg, "enableOcclusionCulling")
+        .name("遮挡剔除(occlusionCulling)")
+        .onChange((v: boolean) => {
+            ThreeProjectorTool.enableOcclusionCulling = v;
         });
     projFolder
         .add(cfg, "isAutoOpacity")

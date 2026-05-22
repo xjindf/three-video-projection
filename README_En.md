@@ -108,6 +108,7 @@ const projector = await createThreeVideoProjector({
     [0, 1],
   ], // keystone correction (order: BL, BR, TR, TL)
   isShowHelper: true, // show projector camera helper
+  enableOcclusionCulling: true, // enable occlusion culling (disable to improve performance, but video will bleed through occluders)
 });
 
 // Add target meshes to receive projection
@@ -201,6 +202,7 @@ Notes:
 | `cropRect` | `[number, number, number, number]` | No | `[0, 0, 1, 1]` | UV crop rectangle `[x0, y0, x1, y1]`. |
 | `quadCorners` | `[[number, number], [number, number], [number, number], [number, number]]` | No | `[[0,0],[1,0],[1,1],[0,1]]` | Keystone correction corners; order: BL, BR, TR, TL. |
 | `isShowHelper` | `boolean` | No | `true` | Whether to show `CameraHelper`. |
+| `enableOcclusionCulling` | `boolean` | No | `true` | Whether to enable occlusion culling. When disabled, video may bleed through occluding geometry, but the per-frame depth pre-render pass is skipped for better performance. |
 
 `ThreeProjectorTool` Method Table:
 
@@ -227,6 +229,7 @@ Notes:
 | `projCam` | `THREE.PerspectiveCamera` | No | Projector camera instance. |
 | `camHelper` | `THREE.CameraHelper \| null` | No | Camera helper instance. |
 | `orientationParams` | `{ azimuthDeg: number; elevationDeg: number; rollDeg: number }` | No | Current orientation parameter snapshot. |
+| `enableOcclusionCulling` | `boolean` | Yes | Occlusion culling toggle; can be switched at runtime. |
 
 ### Cesium API
 

@@ -107,6 +107,7 @@ const projector = await createThreeVideoProjector({
     [0, 1],
   ], // 四角透视校正（顺序：左下、右下、右上、左上）
   isShowHelper: true, // 显示投影相机辅助线
+  enableOcclusionCulling: true, // 开启遮挡剔除（关闭可提升性能，但视频会穿透遮挡物）
 });
 
 // 添加需要被投影的目标 mesh
@@ -200,6 +201,7 @@ projector.destroy();
 | `cropRect` | `[number, number, number, number]` | 否 | `[0, 0, 1, 1]` | UV 裁剪 `[x0, y0, x1, y1]`。 |
 | `quadCorners` | `[[number, number], [number, number], [number, number], [number, number]]` | 否 | `[[0,0],[1,0],[1,1],[0,1]]` | 四角透视校正，顺序：左下、右下、右上、左上。 |
 | `isShowHelper` | `boolean` | 否 | `true` | 是否显示 `CameraHelper`。 |
+| `enableOcclusionCulling` | `boolean` | 否 | `true` | 是否开启遮挡剔除。关闭后视频可能投射到被遮挡的面，但省去每帧的深度预渲染 pass，性能更好。 |
 
 `ThreeProjectorTool` 方法表：
 
@@ -226,6 +228,7 @@ projector.destroy();
 | `projCam` | `THREE.PerspectiveCamera` | 否 | 投影相机实例。 |
 | `camHelper` | `THREE.CameraHelper \| null` | 否 | 相机辅助线实例。 |
 | `orientationParams` | `{ azimuthDeg: number; elevationDeg: number; rollDeg: number }` | 否 | 当前朝向参数快照。 |
+| `enableOcclusionCulling` | `boolean` | 是 | 遮挡剔除开关 |
 
 ### Cesium API
 

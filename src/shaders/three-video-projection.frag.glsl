@@ -3,6 +3,7 @@ uniform sampler2D projectorDepthMap;
 uniform mat4 projectorMatrix;
 uniform float intensity;
 uniform float projBias;
+uniform bool enableOcclusionCulling;
 uniform float edgeFeather;
 uniform float opacity;
 uniform vec4 cropRect;
@@ -17,10 +18,12 @@ void main() {
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
 
     // 深度遮挡剔除
-    float projNDCz = projPos.z / projPos.w;
-    float projDepth01 = projNDCz * 0.5 + 0.5;
-    float sceneDepth01 = texture(projectorDepthMap, uv).x;
-    if (projDepth01 > sceneDepth01 + projBias) discard;
+    if (enableOcclusionCulling) {
+        float projNDCz = projPos.z / projPos.w;
+        float projDepth01 = projNDCz * 0.5 + 0.5;
+        float sceneDepth01 = texture(projectorDepthMap, uv).x;
+        if (projDepth01 > sceneDepth01 + projBias) discard;
+    }
 
     // 四角点变换（投影UV -> 视频纹理UV）
     vec3 hw = quadHomography * vec3(uv, 1.0);
