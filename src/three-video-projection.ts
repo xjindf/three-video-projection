@@ -200,6 +200,11 @@ export async function createThreeVideoProjector(
     const targetMeshes: THREE.Mesh[] = [];
     const depthProxies: THREE.Mesh[] = [];
 
+    // 用于脏检测的缓存
+    const _tmpProjMatrix = new THREE.Matrix4();
+    const _lastProjCamMatrix = new THREE.Matrix4();
+    const _lastMeshMatrices: THREE.Matrix4[] = [];
+
     update();
 
     // 创建投影mesh
@@ -213,10 +218,12 @@ export async function createThreeVideoProjector(
 
         const proxy = new THREE.Mesh(mesh.geometry, depthMaterial);
         proxy.matrixAutoUpdate = false;
+        proxy.matrix.copy(mesh.matrixWorld);
         depthScene.add(proxy);
 
         overlays.push(overlay);
         depthProxies.push(proxy);
+        _lastMeshMatrices.push(mesh.matrixWorld.clone());
 
         return { overlay, proxy };
     }
@@ -241,6 +248,8 @@ export async function createThreeVideoProjector(
 
         const proxy = depthProxies.splice(idx, 1)[0];
         if (proxy) depthScene.remove(proxy);
+
+        _lastMeshMatrices.splice(idx, 1);
     }
 
     // 每帧调用
@@ -248,9 +257,8 @@ export async function createThreeVideoProjector(
         if (enableOcclusionCulling) {
             for (let i = 0; i < targetMeshes.length; i++) {
                 const src = targetMeshes[i];
-                const proxy = depthProxies[i];
                 src.updateMatrixWorld(true);
-                proxy.matrix.copy(src.matrixWorld);
+                depthProxies[i].matrix.copy(src.matrixWorld);
             }
 
             renderer.setRenderTarget(projectorDepthRT);
@@ -261,18 +269,22 @@ export async function createThreeVideoProjector(
             projectorUniforms.projectorDepthMap.value = projectorDepthRT.depthTexture;
         }
 
-        const projectorMatrix = new THREE.Matrix4();
-        projectorMatrix.multiplyMatrices(
-            projCam.projectionMatrix,
-            projCam.matrixWorldInverse
-        );
-        projectorUniforms.projectorMatrix.value.copy(projectorMatrix);
+        if (!_lastProjCamMatrix.equals(projCam.matrixWorld)) {
+            _tmpProjMatrix.multiplyMatrices(
+                projCam.projectionMatrix,
+                projCam.matrixWorldInverse
+            );
+            projectorUniforms.projectorMatrix.value.copy(_tmpProjMatrix);
+            _lastProjCamMatrix.copy(projCam.matrixWorld);
+        }
 
         for (let i = 0; i < targetMeshes.length; i++) {
             const src = targetMeshes[i];
-            const overlay = overlays[i];
             src.updateMatrixWorld(true);
-            overlay.matrix.copy(src.matrixWorld);
+            if (!_lastMeshMatrices[i].equals(src.matrixWorld)) {
+                overlays[i].matrix.copy(src.matrixWorld);
+                _lastMeshMatrices[i].copy(src.matrixWorld);
+            }
         }
     }
 
