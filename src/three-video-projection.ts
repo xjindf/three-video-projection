@@ -46,6 +46,7 @@ export type ThreeProjectorToolOptions = {
     ];
     isShowHelper?: boolean;
     enableOcclusionCulling?: boolean;
+    showFarPlane?: boolean;
 };
 
 export interface ThreeProjectorTool {
@@ -75,6 +76,7 @@ export interface ThreeProjectorTool {
         rollDeg: number;
     };
     enableOcclusionCulling: boolean;
+    showFarPlane: boolean;
 }
 
 export async function createThreeVideoProjector(
@@ -179,6 +181,17 @@ export async function createThreeVideoProjector(
         alphaTest: 0.02,
     });
 
+    const farPlaneMat = new THREE.ShaderMaterial({
+        uniforms: projectorUniforms,
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide,
+        alphaTest: 0.02,
+    });
+
     const projectorDepthRT = new THREE.WebGLRenderTarget(depthSize, depthSize, {
         minFilter: THREE.NearestFilter,
         magFilter: THREE.NearestFilter,
@@ -203,9 +216,17 @@ export async function createThreeVideoProjector(
     // 用于脏检测的缓存
     const _tmpProjMatrix = new THREE.Matrix4();
     const _lastProjCamMatrix = new THREE.Matrix4();
+    const _lastProjCamProjectionMatrix = new THREE.Matrix4();
     const _lastMeshMatrices: THREE.Matrix4[] = [];
 
+    // 远裁剪面 overlay
+    let showFarPlane = opts.showFarPlane ?? false;
+    let farPlaneOverlay: THREE.Mesh | null = null;
+    let farPlaneGeometry: THREE.PlaneGeometry | null = null;
+    const _farPlaneDir = new THREE.Vector3();
+
     update();
+    buildFarPlaneOverlay();
 
     // 创建投影mesh
     function makeProjectorOverlayAndProxy(mesh: THREE.Mesh) {
@@ -252,6 +273,34 @@ export async function createThreeVideoProjector(
         _lastMeshMatrices.splice(idx, 1);
     }
 
+    // 同步远裁剪面位置与朝向
+    function updateFarPlaneTransform() {
+        if (!farPlaneOverlay) return;
+        projCam.getWorldDirection(_farPlaneDir);
+        farPlaneOverlay.position.copy(projCam.position).addScaledVector(_farPlaneDir, projCam.far * 0.9);
+        farPlaneOverlay.quaternion.copy(projCam.quaternion);
+        farPlaneOverlay.updateMatrix();
+    }
+
+    // 创建/销毁远裁剪面 overlay（showFarPlane 变化时调用）
+    function buildFarPlaneOverlay() {
+        if (farPlaneOverlay) {
+            scene.remove(farPlaneOverlay);
+            farPlaneGeometry?.dispose();
+            farPlaneOverlay = null;
+            farPlaneGeometry = null;
+        }
+        if (!showFarPlane) return;
+        const fovRad = THREE.MathUtils.degToRad(projCam.fov);
+        const h = 2 * Math.tan(fovRad / 2) * projCam.far * 0.9;
+        const w = h * projCam.aspect;
+        farPlaneGeometry = new THREE.PlaneGeometry(w, h);
+        farPlaneOverlay = new THREE.Mesh(farPlaneGeometry, farPlaneMat);
+        farPlaneOverlay.matrixAutoUpdate = false;
+        updateFarPlaneTransform();
+        scene.add(farPlaneOverlay);
+    }
+
     // 每帧调用
     function update() {
         if (enableOcclusionCulling) {
@@ -269,13 +318,22 @@ export async function createThreeVideoProjector(
             projectorUniforms.projectorDepthMap.value = projectorDepthRT.depthTexture;
         }
 
-        if (!_lastProjCamMatrix.equals(projCam.matrixWorld)) {
+        const _camMoved = !_lastProjCamMatrix.equals(projCam.matrixWorld);
+        const _projChanged = !_lastProjCamProjectionMatrix.equals(projCam.projectionMatrix);
+        if (_camMoved || _projChanged) {
             _tmpProjMatrix.multiplyMatrices(
                 projCam.projectionMatrix,
                 projCam.matrixWorldInverse
             );
             projectorUniforms.projectorMatrix.value.copy(_tmpProjMatrix);
             _lastProjCamMatrix.copy(projCam.matrixWorld);
+            _lastProjCamProjectionMatrix.copy(projCam.projectionMatrix);
+            // projectionMatrix 变化（fov/near/far）时需重建几何体，否则只更新位置朝向
+            if (_projChanged) {
+                buildFarPlaneOverlay();
+            } else {
+                updateFarPlaneTransform();
+            }
         }
 
         for (let i = 0; i < targetMeshes.length; i++) {
@@ -296,6 +354,9 @@ export async function createThreeVideoProjector(
         depthProxies.length = 0;
         targetMeshes.length = 0;
 
+        if (farPlaneOverlay) scene.remove(farPlaneOverlay);
+        farPlaneGeometry?.dispose();
+        farPlaneMat.dispose();
         projectorMat.dispose();
         depthMaterial.dispose();
         try {
@@ -403,6 +464,15 @@ export async function createThreeVideoProjector(
             set: (v: boolean) => {
                 enableOcclusionCulling = v;
                 projectorUniforms.enableOcclusionCulling.value = v;
+            },
+            enumerable: true,
+        },
+        // 远裁剪面投影开关
+        showFarPlane: {
+            get: () => showFarPlane,
+            set: (v: boolean) => {
+                showFarPlane = v;
+                buildFarPlaneOverlay();
             },
             enumerable: true,
         },

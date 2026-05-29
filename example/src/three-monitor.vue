@@ -139,6 +139,7 @@ onMounted(async () => {
     const cfg: any = {
         showHelpers: ThreeProjectorTool.camHelper?.visible,
         enableOcclusionCulling: ThreeProjectorTool.enableOcclusionCulling,
+        showFarPlane: ThreeProjectorTool.showFarPlane,
         intensity: ThreeProjectorTool.uniforms.intensity.value,
         projFov: projCam.fov,
         proFar: projCam.far,
@@ -252,6 +253,12 @@ onMounted(async () => {
         .name("遮挡剔除(occlusionCulling)")
         .onChange((v: boolean) => {
             ThreeProjectorTool.enableOcclusionCulling = v;
+        });
+    projFolder
+        .add(cfg, "showFarPlane")
+        .name("远裁剪面投影(farPlane)")
+        .onChange((v: boolean) => {
+            ThreeProjectorTool.showFarPlane = v;
         });
     projFolder
         .add(cfg, "isAutoOpacity")
